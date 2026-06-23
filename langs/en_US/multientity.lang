@@ -1,0 +1,59 @@
+# MultiEntity - en_US
+# Copyright 2024-2026 P'tite Tête <support@ptitetete.org>
+# License: GPL v3+
+
+# Module
+Module351007Name = Multi-Entity
+Module351007Desc = Multi-entity (multi-company) management with strict isolation, a free alternative to Multicompany
+MultiEntity = Multi-Entity
+Entity = Entity
+MainEntityDefaultLabel = Main entity
+
+# Permissions
+PermissionRead = Access the Multi-Entity module
+PermissionManage = Manage entities and user assignments
+
+# Administration
+MultiEntitySetup = Multi-Entity setup
+MultiEntityAbout = About Multi-Entity
+MultiEntityDebugMode = Debug mode
+MultiEntityIsolationNote = Isolation
+MultiEntityIsolationDesc = Strict isolation: no reference data is shared between entities.
+
+# Entity management (admin/entities.php)
+Entities = Entities
+NewEntity = New entity
+EditEntity = Edit entity
+EntityLabel = Label
+EntityCode = Code
+EntityColor = Color
+EntityCreated = Entity created successfully.
+EntityUpdated = Entity updated successfully.
+EntityActivated = Entity activated successfully.
+EntityDisabled = Entity disabled successfully.
+CannotDeactivateMainEntity = Cannot deactivate the main entity (entity 1).
+InvalidColorFormat = Invalid color format. Use #RRGGBB format (e.g. #FF5733).
+LabelRequired = Label is required.
+EntityNotFound = Entity not found.
+EntityStatusActive = Active
+EntityStatusInactive = Inactive
+
+# Company information per entity (story 2.3)
+CompanyInfo = Company information
+CompanyName = Company name
+CompanyAddress = Address
+CompanyZip = Zip code
+CompanyTown = City
+CompanyCountry = Country
+CompanyCurrency = Currency
+CompanyInfoSaved = Company information saved successfully.
+InvalidCountrySelection = Invalid or unknown selected country; country ignored.
+
+# User ↔ entity assignments (story 2.4)
+UserEntities = Users ↔ entities
+SelectUser = Select a user
+AuthorizedEntities = Authorized entities
+DefaultEntity = Default entity
+AssignmentsSaved = Assignments saved successfully.
+DefaultMustBeAuthorized = The default entity must be one of the authorized entities.
+NoEntitySelected = No entity selected: all assignments have been removed.

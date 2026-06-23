@@ -15,18 +15,18 @@ cible: "Dolibarr 19.0 -> 23.0+ ; PHP 7.4-8.4 ; MySQL 5.7+/MariaDB 10.3+"
 
 development_status:
 
-  epic-1: backlog   # Fondations module & schéma
-  1-1-descripteur-modmultientity: backlog
-  1-2-schema-sql-idempotent: backlog
-  1-3-squelette-i18n-lib: backlog
-  epic-1-retrospective: optional
+  epic-1: done   # Fondations — code+validate+review OK ; activé sur démo Dolibarr 23.0.3 ; retro faite (2026-06-23)
+  1-1-descripteur-modmultientity: done
+  1-2-schema-sql-idempotent: done
+  1-3-squelette-i18n-lib: done
+  epic-1-retrospective: done
 
-  epic-2: backlog   # Gestion entités & affectation utilisateurs
-  2-1-service-multientity: backlog
-  2-2-page-admin-entities: backlog
-  2-3-initialisation-entite: backlog
-  2-4-affectation-user-entites: backlog
-  epic-2-retrospective: optional
+  epic-2: done   # 4/4 stories done (cycle complet) — retro faite (2026-06-23)
+  2-1-service-multientity: done
+  2-2-page-admin-entities: done
+  2-3-initialisation-entite: done
+  2-4-affectation-user-entites: done
+  epic-2-retrospective: done
 
   epic-3: backlog   # Switch d'entité sécurisé (CŒUR — sécurité d'isolation)
   3-1-resolution-entite-login: backlog
@@ -50,5 +50,48 @@ development_status:
   5-5-packaging: backlog
   epic-5-retrospective: optional
 
-# NOTE : ordre conseillé E1 -> E2 -> E3 -> E4 ; E5 en continu.
+  epic-6: backlog   # API REST MultiEntity (dépend E2+E3 — réutilise contrôle d'accès)
+  6-1-classe-api-module: backlog
+  6-2-api-lecture-entites: backlog
+  6-3-api-creation-maj-entite: backlog
+  6-4-api-configuration: backlog
+  epic-6-retrospective: optional
+
+# NOTE : ordre conseillé E1 -> E2 -> E3 -> E4 ; E5 en continu ; E6 (API) après E2+E3.
 # NE JAMAIS livrer E3 sans 3-5 (tests sécurité isolation) au vert.
+# E6 (API REST) réutilise le contrôle d'accès de E3 : pas d'isolation ré-implémentée côté API.
+
+# Action items issus des rétrospectives
+action_items:
+  - epic: 1
+    action: "Corriger CLAUDE.dolibarr.md : guard DOLIBARR_INC_FOR_MODULES sur pages admin = faux positif (core ne la definit pas, aucun module prod ne l'emploie)"
+    owner: "P'tite Tête"
+    status: open
+  - epic: 1
+    action: "E2 : le service Multientity doit valider user actif + nettoyer les affectations orphelines (pas de FK sur fk_user)"
+    owner: "dev E2"
+    status: done
+  - epic: 1
+    action: "Pousser branche + ouvrir PR pour executer la CI (php-tests + sql-compatibility) sur GitHub"
+    owner: "P'tite Tête"
+    status: done   # PR #6 ; CI verte (PHP 7.4-8.4, 5 moteurs SQL) apres fix MariaDB 11.4
+  - epic: 1
+    action: "Completer la couverture compat : activation sur Dolibarr 19 et 21"
+    owner: "dev E5.2"
+    status: open
+  - epic: 1
+    action: "Decider si composer.json + bootstrap PHPUnit sont crees des E2 ou repousses a E5"
+    owner: "P'tite Tête"
+    status: done
+  - epic: 2
+    action: "E3.3 : le switch doit valider entity_id dans entites autorisees ET entite active (issue F-12 de 2-1)"
+    owner: "dev E3"
+    status: open
+  - epic: 2
+    action: "Test runtime demo : creer entite 2 + infos societe + affecter un user (defaut 2), verifier isolation des donnees"
+    owner: "P'tite Tête"
+    status: open
+  - epic: 2
+    action: "Decider du verrou anti-concurrence (FOR UPDATE) sur setUserEntities/setActive avant prod"
+    owner: "dev E5"
+    status: open

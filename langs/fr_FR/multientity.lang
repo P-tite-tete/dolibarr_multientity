@@ -1,0 +1,59 @@
+# MultiEntity - fr_FR
+# Copyright 2024-2026 P'tite Tête <support@ptitetete.org>
+# License: GPL v3+
+
+# Module
+Module351007Name = Multi-Entité
+Module351007Desc = Gestion multi-entité (multi-société) en isolation stricte, alternative gratuite à Multicompany
+MultiEntity = Multi-Entité
+Entity = Entité
+MainEntityDefaultLabel = Entité principale
+
+# Permissions
+PermissionRead = Accéder au module Multi-Entité
+PermissionManage = Gérer les entités et l'affectation des utilisateurs
+
+# Administration
+MultiEntitySetup = Configuration Multi-Entité
+MultiEntityAbout = À propos de Multi-Entité
+MultiEntityDebugMode = Mode debug
+MultiEntityIsolationNote = Isolation
+MultiEntityIsolationDesc = Isolation stricte : aucun référentiel n'est partagé entre les entités.
+
+# Gestion des entités (admin/entities.php)
+Entities = Entités
+NewEntity = Nouvelle entité
+EditEntity = Modifier l'entité
+EntityLabel = Libellé
+EntityCode = Code
+EntityColor = Couleur
+EntityCreated = Entité créée avec succès.
+EntityUpdated = Entité mise à jour avec succès.
+EntityActivated = Entité activée avec succès.
+EntityDisabled = Entité désactivée avec succès.
+CannotDeactivateMainEntity = Impossible de désactiver l'entité principale (entité 1).
+InvalidColorFormat = Format de couleur invalide. Utilisez le format #RRGGBB (ex. : #FF5733).
+LabelRequired = Le libellé est obligatoire.
+EntityNotFound = Entité introuvable.
+EntityStatusActive = Active
+EntityStatusInactive = Inactive
+
+# Informations société par entité (story 2.3)
+CompanyInfo = Informations société
+CompanyName = Nom de la société
+CompanyAddress = Adresse
+CompanyZip = Code postal
+CompanyTown = Ville
+CompanyCountry = Pays
+CompanyCurrency = Devise
+CompanyInfoSaved = Informations société enregistrées avec succès.
+InvalidCountrySelection = Pays sélectionné invalide ou introuvable ; pays ignoré.
+
+# Affectation utilisateurs ↔ entités (story 2.4)
+UserEntities = Utilisateurs ↔ entités
+SelectUser = Sélectionner un utilisateur
+AuthorizedEntities = Entités autorisées
+DefaultEntity = Entité par défaut
+AssignmentsSaved = Affectations enregistrées avec succès.
+DefaultMustBeAuthorized = L'entité par défaut doit faire partie des entités autorisées.
+NoEntitySelected = Aucune entité sélectionnée : toutes les affectations ont été supprimées.

@@ -53,11 +53,21 @@ Objectif : valider l'écosystème en multi-entité maison.
 - **5.4 i18n complète 5 langues.**
 - **5.5 Packaging** : `build/` makepack, ZIP `dist/`, checklist DoliStore (si publication envisagée), licence GPL v3+.
 
+## Epic 6 — API REST MultiEntity (configuration & entités)
+
+Objectif : exposer des **endpoints REST dédiés** au module pour lire/créer la configuration et les entités (le core REST n'expose ni nos tables ni nos constantes). Réutilisable par intégrations externes et pour la démo/présentation. **Dépend de E2 (service `Multientity`) et de E3 (contrôle d'accès)** : l'API réutilise la même validation serveur — jamais de logique d'isolation dupliquée/affaiblie.
+
+- **6.1 Classe API du module** : `class/api_multientity.class.php` étendant `DolibarrApi`, auto-découverte Dolibarr (endpoints sous `/multientity/...`). Auth par token API standard, `hasRight('multientity', …)`.
+- **6.2 Lecture entités** : `GET /multientity/entities` → **uniquement les entités autorisées de l'utilisateur du token** (isolation stricte, NFR-S1). `GET /multientity/entities/{id}` avec contrôle d'accès.
+- **6.3 Création/maj entité** : `POST /multientity/entities` (droit `manage`), `PUT /multientity/entities/{id}` ; validations + init constantes société (cf. 2.3).
+- **6.4 Configuration module** : `GET /multientity/config` (lecture des constantes `MULTIENTITY_*`), `PUT /multientity/config` (droit `manage`).
+- **AC** : token requis ; un utilisateur ne lit/agit QUE sur ses entités autorisées (tentative cross-entité → 403 + log, NFR-S3) ; aucune fuite inter-entité par l'API (vecteur déjà listé architecture §5) ; doc Swagger à jour.
+
 ---
 
 ## Dépendances & risques (rappel)
 
-- E3 dépend de E1/E2. E4 dépend de E3.
+- E3 dépend de E1/E2. E4 dépend de E3. **E6 (API) dépend de E2 + E3** (réutilise service + contrôle d'accès, ne ré-implémente pas l'isolation).
 - Risque central : **sécurité d'isolation** (E3.3/3.4/3.5) — traiter en priorité, ne jamais livrer partiellement.
 - Risque compat : évolutions core entre versions (E5.2).
 - Décision produit en suspens : **partage de référentiels** = hors périmètre ; si exigé par un client → rouvrir l'arbitrage (Multicompany payant vs extension).

@@ -1,0 +1,20 @@
+-- Date: 2026-06-23
+-- Version: 0.2.0
+-- Description: Squelette de migration idempotente MultiEntity (0.1.0 -> 0.2.0).
+--              Modèle de référence pour les ajouts de colonnes futurs.
+--              INTERDIT : IF NOT EXISTS / IF EXISTS. Utiliser information_schema + PREPARE.
+-- Author: P'tite Tête
+-- Copyright 2024-2026 P'tite Tête <support@ptitetete.org>
+-- License: http://www.gnu.org/licenses/gpl.html GNU General Public License
+
+-- Aucune migration en 0.2.0 pour l'instant.
+-- Patron à copier pour ajouter une colonne de façon idempotente :
+--
+-- SET @exist := (SELECT COUNT(*) FROM information_schema.COLUMNS
+--                WHERE TABLE_SCHEMA = DATABASE()
+--                AND TABLE_NAME = CONCAT(@prefix, 'multientity_entity')
+--                AND COLUMN_NAME = 'ma_colonne');
+-- SET @sqlstmt := IF(@exist = 0,
+--   CONCAT('ALTER TABLE ', @prefix, 'multientity_entity ADD COLUMN ma_colonne varchar(64) DEFAULT NULL'),
+--   'SELECT "column already exists"');
+-- PREPARE stmt FROM @sqlstmt; EXECUTE stmt; DEALLOCATE PREPARE stmt;

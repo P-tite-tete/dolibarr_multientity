@@ -12,3 +12,7 @@ conf.php
 .idea/
 .vscode/
 *.code-workspace
+
+# Outillage BMAD / skills locaux (non livrable du module)
+/_bmad/
+/.claude/

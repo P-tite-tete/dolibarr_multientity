@@ -1,0 +1,59 @@
+# MultiEntity - es_ES
+# Copyright 2024-2026 P'tite Tête <support@ptitetete.org>
+# License: GPL v3+
+
+# Module
+Module351007Name = Multi-Entidad
+Module351007Desc = Gestión multi-entidad (multi-empresa) con aislamiento estricto, alternativa gratuita a Multicompany
+MultiEntity = Multi-Entidad
+Entity = Entidad
+MainEntityDefaultLabel = Entidad principal
+
+# Permissions
+PermissionRead = Acceder al módulo Multi-Entidad
+PermissionManage = Gestionar las entidades y la asignación de usuarios
+
+# Administration
+MultiEntitySetup = Configuración Multi-Entidad
+MultiEntityAbout = Acerca de Multi-Entidad
+MultiEntityDebugMode = Modo depuración
+MultiEntityIsolationNote = Aislamiento
+MultiEntityIsolationDesc = Aislamiento estricto: no se comparte ningún dato de referencia entre las entidades.
+
+# Gestión de entidades (admin/entities.php)
+Entities = Entidades
+NewEntity = Nueva entidad
+EditEntity = Editar entidad
+EntityLabel = Etiqueta
+EntityCode = Código
+EntityColor = Color
+EntityCreated = Entidad creada con éxito.
+EntityUpdated = Entidad actualizada con éxito.
+EntityActivated = Entidad activada con éxito.
+EntityDisabled = Entidad desactivada con éxito.
+CannotDeactivateMainEntity = No es posible desactivar la entidad principal (entidad 1).
+InvalidColorFormat = Formato de color no válido. Utilice el formato #RRGGBB (p. ej. #FF5733).
+LabelRequired = La etiqueta es obligatoria.
+EntityNotFound = Entidad no encontrada.
+EntityStatusActive = Activa
+EntityStatusInactive = Inactiva
+
+# Información de empresa por entidad (story 2.3)
+CompanyInfo = Información de empresa
+CompanyName = Nombre de la empresa
+CompanyAddress = Dirección
+CompanyZip = Código postal
+CompanyTown = Ciudad
+CompanyCountry = País
+CompanyCurrency = Moneda
+CompanyInfoSaved = Información de empresa guardada con éxito.
+InvalidCountrySelection = País seleccionado no válido o desconocido; país ignorado.
+
+# Asignación usuarios ↔ entidades (story 2.4)
+UserEntities = Usuarios ↔ entidades
+SelectUser = Seleccionar un usuario
+AuthorizedEntities = Entidades autorizadas
+DefaultEntity = Entidad predeterminada
+AssignmentsSaved = Asignaciones guardadas con éxito.
+DefaultMustBeAuthorized = La entidad predeterminada debe pertenecer a las entidades autorizadas.
+NoEntitySelected = Ninguna entidad seleccionada: todas las asignaciones han sido eliminadas.
