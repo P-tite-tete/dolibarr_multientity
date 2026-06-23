@@ -62,11 +62,9 @@ jobs:
           MYSQL_DATABASE: multientity_test
         ports:
           - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h127.0.0.1 -uroot -ptest123"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
+        # Pas de --health-cmd ici : MariaDB 11.4 ne fournit plus le binaire `mysqladmin`
+        # dans l'image (→ container jamais "healthy" → échec d'init). On s'appuie sur
+        # la boucle d'attente côté runner (client présent sur le runner, indépendant de l'image).
     steps:
     - uses: actions/checkout@v4
       with:
@@ -74,8 +72,9 @@ jobs:
 
     - name: Attendre que la base soit prête
       run: |
-        for i in $(seq 1 30); do
-          if mysqladmin ping -h127.0.0.1 -P3306 -uroot -ptest123 --silent 2>/dev/null; then
+        for i in $(seq 1 40); do
+          if mysqladmin ping -h127.0.0.1 -P3306 -uroot -ptest123 --silent 2>/dev/null \
+             || mysql -h127.0.0.1 -P3306 -uroot -ptest123 -e 'SELECT 1' >/dev/null 2>&1; then
             echo "✅ Base prête"; exit 0
           fi
           echo "⏳ Attente base..."; sleep 3
