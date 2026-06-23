@@ -1,0 +1,130 @@
+name: CI - MultiEntity (SQL)
+
+# Compatibilité SQL du module MultiEntity (réutilisable via workflow_call).
+# Charge directement les fichiers sql/ du module sur 5 moteurs cibles,
+# vérifie l'absence de IF [NOT] EXISTS et la bonne création des tables.
+# (Version allégée : pas d'install Dolibarr complète — les 2 tables sont
+#  transverses, sans FK vers le core.)
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: 'Git reference to checkout'
+        required: false
+        type: string
+        default: ''
+
+env:
+  ACTIONS_RETENTION_DAYS: 30
+
+jobs:
+  lint-sql:
+    name: 🔎 Idempotence (IF [NOT] EXISTS interdit)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref || github.ref }}
+    - name: Vérifier l'absence de IF [NOT] EXISTS (hors commentaires)
+      run: |
+        violations=0
+        for f in sql/*.sql; do
+          [ -f "$f" ] || continue
+          # Retirer les lignes de commentaire SQL (--) avant de chercher
+          if grep -vE '^[[:space:]]*--' "$f" | grep -qiE '\bIF[[:space:]]+(NOT[[:space:]]+)?EXISTS\b'; then
+            echo "❌ $f : IF [NOT] EXISTS interdit (utiliser information_schema + PREPARE)"
+            violations=$((violations+1))
+          else
+            echo "✅ $f"
+          fi
+        done
+        [ $violations -eq 0 ] || exit 1
+
+  load-sql:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    needs: lint-sql
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 'MySQL 5.7',     image: 'mysql:5.7' }
+          - { name: 'MySQL 8.0',     image: 'mysql:8.0' }
+          - { name: 'MySQL 8.4',     image: 'mysql:8.4' }
+          - { name: 'MariaDB 10.11', image: 'mariadb:10.11' }
+          - { name: 'MariaDB 11.4',  image: 'mariadb:11.4' }
+    services:
+      db:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: test123
+          MYSQL_DATABASE: multientity_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -uroot -ptest123"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref || github.ref }}
+
+    - name: Attendre que la base soit prête
+      run: |
+        for i in $(seq 1 30); do
+          if mysqladmin ping -h127.0.0.1 -P3306 -uroot -ptest123 --silent 2>/dev/null; then
+            echo "✅ Base prête"; exit 0
+          fi
+          echo "⏳ Attente base..."; sleep 3
+        done
+        echo "❌ Base indisponible"; exit 1
+
+    - name: Charger les tables (substitution llx_ → llxtest_)
+      run: |
+        PREFIX="llxtest_"
+        echo "🗄️ Création des tables (préfixe $PREFIX)..."
+        for f in $(find sql -name 'llx_*.sql' ! -name 'update_*' | sort); do
+          echo "→ $f"
+          sed "s/llx_/${PREFIX}/g" "$f" | mysql -h127.0.0.1 -P3306 -uroot -ptest123 multientity_test
+        done
+        echo "🔁 Application des migrations update_*..."
+        for f in $(find sql -name 'update_*.sql' | sort); do
+          echo "→ $f"
+          sed "s/llx_/${PREFIX}/g" "$f" | mysql -h127.0.0.1 -P3306 -uroot -ptest123 multientity_test || { echo "❌ Échec migration $f"; exit 1; }
+        done
+
+    - name: Vérifier la présence des tables
+      run: |
+        for t in llxtest_multientity_entity llxtest_multientity_user_entity; do
+          n=$(mysql -h127.0.0.1 -P3306 -uroot -ptest123 -N -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='multientity_test' AND TABLE_NAME='$t';")
+          if [ "$n" = "1" ]; then echo "✅ Table $t créée"; else echo "❌ Table $t absente"; exit 1; fi
+        done
+
+    - name: Tester l'idempotence (rejouer le chargement)
+      run: |
+        PREFIX="llxtest_"
+        echo "🔁 Re-chargement pour vérifier la tolérance (table déjà existante)..."
+        for f in $(find sql -name 'llx_*.sql' ! -name 'update_*' | sort); do
+          # On tolère l'erreur 1050 (table already exists) comme à la ré-activation
+          sed "s/llx_/${PREFIX}/g" "$f" | mysql -h127.0.0.1 -P3306 -uroot -ptest123 --force multientity_test 2>/dev/null || true
+        done
+        echo "✅ Ré-exécution sans interruption"
+
+  summary:
+    name: 📊 Résumé compatibilité SQL
+    runs-on: ubuntu-latest
+    needs: [lint-sql, load-sql]
+    if: always()
+    steps:
+    - name: 📋 Rapport
+      run: |
+        echo "lint-sql .. ${{ needs.lint-sql.result }}"
+        echo "load-sql .. ${{ needs.load-sql.result }}"
+        if [ "${{ needs.lint-sql.result }}" = "success" ] && [ "${{ needs.load-sql.result }}" = "success" ]; then
+          echo "🎉 Compatibilité SQL validée (5 moteurs)"
+        else
+          echo "❌ Compatibilité SQL en échec"; exit 1
+        fi

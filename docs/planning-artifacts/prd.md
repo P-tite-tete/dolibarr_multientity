@@ -21,6 +21,7 @@ Voir analyse technique vérifiée : product-brief.md §1 et architecture.md.
 - **FR9 — Indicateur d'entité courante.** L'entité active est affichée en permanence dans l'UI (nom + éventuelle couleur) pour éviter toute saisie dans la mauvaise société.
 - **FR10 — Compatibilité Doli2Shop.** La configuration Doli2Shop (credentials Shopify, mappings, licence) reste par entité (déjà le cas via `$conf->entity`). 1 entité = 1 société = 1 boutique = 1 licence Doli2Shop.
 - **FR11 — Traductions 5 langues.** fr_FR, en_US, de_DE, es_ES, it_IT.
+- **FR12 — API REST dédiée.** Le module expose ses propres endpoints REST (`/multientity/entities`, `/multientity/config`) pour **lire** les entités/configuration et en **créer**, car le core REST n'expose ni les tables ni les constantes du module. L'API applique la **même** validation serveur que le switch (isolation stricte) : un token ne voit/agit que sur les entités autorisées de son utilisateur. (Epic 6 — dépend de FR4/FR7.)
 
 ## 3. Exigences non fonctionnelles (NFR)
 

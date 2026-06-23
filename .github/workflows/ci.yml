@@ -1,0 +1,25 @@
+name: CI - MultiEntity
+
+# Orchestrateur : déclenche la validation PHP et la compatibilité SQL
+# sur push et pull request. Les deux workflows appelés sont réutilisables
+# (workflow_call) et peuvent aussi être invoqués par auto-prerelease.
+
+on:
+  push:
+    branches: [main, 'dev-*', 'feature/*', 'epic/*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Nettoyage automatique des runs après 30 jours
+env:
+  ACTIONS_RETENTION_DAYS: 30
+
+jobs:
+  php-validation:
+    name: Validation PHP
+    uses: ./.github/workflows/php-tests.yml
+
+  sql-compatibility:
+    name: Compatibilité SQL
+    uses: ./.github/workflows/sql-compatibility.yml

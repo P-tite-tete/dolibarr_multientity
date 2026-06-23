@@ -61,6 +61,7 @@ core/hookcontrols/actions_multientity.class.php  Hook UI (sélecteur d'entité) 
 admin/setup.php                            Config module
 admin/entities.php                         CRUD entités
 admin/user_entities.php                    Affectation user ↔ entités
+class/api_multientity.class.php            API REST (Epic 6) — étend DolibarrApi, endpoints /multientity/* ; réutilise multientityaccess (zéro isolation dupliquée)
 langs/{fr_FR,en_US,de_DE,es_ES,it_IT}/multientity.lang
 lib/multientity.lib.php                    Helpers (prepareHead, getCurrentEntityLabel, …)
 test/unit/…                                Tests (isolation/sécurité en priorité)

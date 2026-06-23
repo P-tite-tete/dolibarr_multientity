@@ -1,0 +1,216 @@
+name: CI - MultiEntity (PHP)
+
+# Validation PHP du module MultiEntity (réutilisable via workflow_call).
+# Adapté du socle P'tite Tête : composer/PHPUnit CONDITIONNELS (le module
+# n'a pas encore de suite de tests ; les tests d'isolation arrivent en E3/E5).
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: 'Git reference to checkout'
+        required: false
+        type: string
+        default: ''
+
+env:
+  ACTIONS_RETENTION_DAYS: 30
+  DOLIBARR_VERSION: '21.0.1'
+  # Dossiers hors module à exclure des scans
+  EXCLUDES: '-not -path "./vendor/*" -not -path "./dolibarr-*" -not -path "./docs/*" -not -path "./_bmad/*" -not -path "./design-artifacts/*" -not -path "./.claude/*" -not -path "./test/*"'
+
+jobs:
+  test-base:
+    name: 🧪 Syntaxe & structure
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4']
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref || github.ref }}
+
+    - name: Setup PHP ${{ matrix.php-version }}
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+        extensions: mysqli, mbstring, zip, xml, curl, intl
+        tools: composer:v2
+
+    - name: ✅ Syntaxe PHP (tous les fichiers du module)
+      run: |
+        echo "🔍 php -l sur les fichiers du module..."
+        errors=0
+        while IFS= read -r -d '' file; do
+          if ! php -l "$file" > /dev/null 2>&1; then
+            echo "❌ Erreur de syntaxe : $file"; php -l "$file"; errors=$((errors+1))
+          fi
+        done < <(eval "find . -name '*.php' $EXCLUDES -print0")
+        if [ $errors -eq 0 ]; then echo "✅ Aucune erreur de syntaxe"; else echo "❌ $errors erreur(s)"; exit 1; fi
+
+    - name: 🔍 composer validate (si composer.json présent)
+      run: |
+        if [ -f composer.json ]; then composer validate --strict; else echo "ℹ️ Pas de composer.json — étape sautée"; fi
+
+    - name: 🧪 PHPUnit (si suite présente)
+      run: |
+        if [ -f vendor/bin/phpunit ] && [ -f phpunit.xml.dist -o -f phpunit.xml ]; then
+          vendor/bin/phpunit --testdox --no-coverage
+        else
+          echo "ℹ️ Pas de suite PHPUnit installée — étape sautée (tests d'isolation prévus en E3/E5)"
+        fi
+
+    - name: 📂 Dossiers requis
+      run: |
+        for dir in admin core langs lib sql; do
+          if [ ! -d "$dir" ]; then echo "❌ Dossier manquant : $dir"; exit 1; else echo "✅ $dir"; fi
+        done
+
+    - name: 📄 Fichiers requis
+      run: |
+        for file in LICENSE README.md ChangeLog.md; do
+          if [ ! -f "$file" ]; then echo "❌ Fichier manquant : $file"; exit 1; else echo "✅ $file"; fi
+        done
+
+    - name: 🔢 Cohérence de version (version.lib.php ↔ makepack)
+      run: |
+        LIB_VERSION=$(grep "define('MULTIENTITY_MODULE_VERSION'" lib/version.lib.php | sed "s/.*'\([0-9]*\.[0-9]*\.[0-9]*\)'.*/\1/")
+        CONF_VERSION=$(grep -E "^# Version:" build/makepack-multientity.conf | sed 's/# Version:[[:space:]]*//')
+        echo "version.lib.php = $LIB_VERSION | makepack = $CONF_VERSION"
+        if [ -z "$LIB_VERSION" ]; then echo "❌ Version introuvable dans version.lib.php"; exit 1; fi
+        if [ "$LIB_VERSION" != "$CONF_VERSION" ]; then echo "❌ Incohérence de version"; exit 1; fi
+        echo "✅ Versions cohérentes"
+
+  security:
+    name: 🔒 Audit sécurité
+    runs-on: ubuntu-latest
+    needs: test-base
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref || github.ref }}
+    - name: 🔒 Patterns à risque
+      run: |
+        issues=0
+        echo "→ Accès direct aux superglobales (\$_GET/\$_POST/\$_REQUEST)"
+        if grep -rnE '\$_(GET|POST|REQUEST)\b' --include="*.php" admin core lib class 2>/dev/null | grep -v 'GETPOST\|dol_escape\|htmlspecialchars'; then
+          echo "❌ Superglobale en accès direct (utiliser GETPOST/GETPOSTINT)"; issues=$((issues+1))
+        fi
+        echo "→ eval()"
+        if grep -rnE '\beval\s*\(' --include="*.php" admin core lib class 2>/dev/null; then
+          echo "❌ eval() détecté"; issues=$((issues+1))
+        fi
+        echo "→ \$conf->global->XXX direct"
+        if grep -rnE '\$conf->global->' --include="*.php" admin core lib class 2>/dev/null; then
+          echo "❌ \$conf->global-> direct (utiliser getDolGlobalString/Int)"; issues=$((issues+1))
+        fi
+        echo "→ \$user->rights-> direct"
+        if grep -rnE '\$user->rights->' --include="*.php" admin core lib class 2>/dev/null; then
+          echo "❌ \$user->rights-> direct (utiliser hasRight())"; issues=$((issues+1))
+        fi
+        if [ $issues -eq 0 ]; then echo "✅ Aucun pattern à risque"; else echo "❌ $issues problème(s)"; exit 1; fi
+
+  module-structure:
+    name: 🏗️ Structure & descripteur
+    runs-on: ubuntu-latest
+    needs: test-base
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref || github.ref }}
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mysqli, mbstring, xml, intl
+
+    - name: 🌍 Cohérence des 5 traductions
+      run: |
+        ref=langs/fr_FR/multientity.lang
+        [ -f "$ref" ] || { echo "❌ Fichier de référence fr_FR manquant"; exit 1; }
+        refkeys=$(grep -E '^[A-Za-z0-9_]+[[:space:]]*=' "$ref" | cut -d= -f1 | tr -d ' ' | sort)
+        rc=$(echo "$refkeys" | wc -l)
+        echo "ℹ️ $rc clés dans fr_FR"
+        err=0
+        for l in en_US de_DE es_ES it_IT; do
+          f=langs/$l/multientity.lang
+          [ -f "$f" ] || { echo "❌ $l manquant"; err=$((err+1)); continue; }
+          cur=$(grep -E '^[A-Za-z0-9_]+[[:space:]]*=' "$f" | cut -d= -f1 | tr -d ' ' | sort)
+          if [ "$cur" = "$refkeys" ]; then echo "✅ $l : clés alignées"; else echo "❌ $l : divergence de clés"; diff <(echo "$refkeys") <(echo "$cur") || true; err=$((err+1)); fi
+        done
+        [ $err -eq 0 ] || exit 1
+
+    - name: 🗄️ Préfixe SQL & nommage update
+      run: |
+        err=0
+        for f in $(find sql -name 'llx_*.sql' ! -name 'update_*'); do
+          base=$(basename "$f")
+          case "$base" in llx_multientity_*) echo "✅ $base";; *) echo "❌ $base : préfixe attendu llx_multientity_"; err=$((err+1));; esac
+        done
+        for f in $(find sql -name 'update_*.sql'); do
+          base=$(basename "$f")
+          if echo "$base" | grep -qE '^update_multientity_[0-9]+\.[0-9]+\.[0-9]+_[0-9]+\.[0-9]+\.[0-9]+\.sql$'; then echo "✅ $base"; else echo "❌ $base : format update_multientity_X.Y.Z_A.B.C.sql attendu"; err=$((err+1)); fi
+        done
+        [ $err -eq 0 ] || exit 1
+
+    - name: 🔧 Chargement du descripteur (avec core Dolibarr)
+      run: |
+        wget -q "https://github.com/Dolibarr/dolibarr/archive/refs/tags/${DOLIBARR_VERSION}.tar.gz" -O dolibarr.tar.gz
+        tar -xzf dolibarr.tar.gz
+        DIR="dolibarr-${DOLIBARR_VERSION}"
+        php -r "
+        define('DOL_DOCUMENT_ROOT', '$DIR/htdocs');
+        define('DOL_DATA_ROOT', '$DIR/documents');
+        include_once 'core/modules/modMultiEntity.class.php';
+        if (class_exists('modMultiEntity')) { echo \"✅ modMultiEntity chargeable\n\"; }
+        else { echo \"❌ modMultiEntity introuvable\n\"; exit(1); }
+        "
+        rm -rf dolibarr.tar.gz "$DIR"
+
+  code-quality:
+    name: 📊 Qualité du code
+    runs-on: ubuntu-latest
+    needs: test-base
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref || github.ref }}
+    - name: 📊 Conventions, headers, paths
+      run: |
+        issues=0
+        echo "→ GETPOST sans 2e argument (type)"
+        if grep -rnE 'GETPOST(INT)?\(\s*['"'"'\"][^'"'"'\"]+['"'"'\"]\s*\)' --include="*.php" admin core lib class 2>/dev/null | grep -v 'GETPOSTINT'; then
+          echo "❌ GETPOST() sans type détecté"; issues=$((issues+1))
+        fi
+        echo "→ Chemins en dur"
+        if grep -rnE '/var/www|/home/[a-z]|C:\\\\' --include="*.php" admin core lib class 2>/dev/null; then
+          echo "❌ Chemin en dur détecté"; issues=$((issues+1))
+        fi
+        echo "→ En-têtes PHPDoc (@package MultiEntity)"
+        while IFS= read -r -d '' file; do
+          if ! head -20 "$file" | grep -q "@package"; then echo "⚠️ En-tête PHPDoc absent : $file"; fi
+        done < <(eval "find . -name '*.php' $EXCLUDES -print0")
+        echo "→ TODO/FIXME"
+        todo=$(grep -rn "TODO\|FIXME" --include="*.php" admin core lib class 2>/dev/null | wc -l)
+        echo "ℹ️ $todo TODO/FIXME"
+        if [ $issues -eq 0 ]; then echo "✅ Qualité OK"; else echo "❌ $issues problème(s)"; exit 1; fi
+
+  validation-summary:
+    name: 📊 Résumé
+    runs-on: ubuntu-latest
+    needs: [test-base, security, module-structure, code-quality]
+    if: always()
+    steps:
+    - name: 📋 Rapport
+      run: |
+        echo "RAPPORT DE VALIDATION PHP — MultiEntity"
+        echo "test-base ........ ${{ needs.test-base.result }}"
+        echo "security ......... ${{ needs.security.result }}"
+        echo "module-structure . ${{ needs.module-structure.result }}"
+        echo "code-quality ..... ${{ needs.code-quality.result }}"
+        if [ "${{ needs.test-base.result }}" = "success" ] && [ "${{ needs.security.result }}" = "success" ] && [ "${{ needs.module-structure.result }}" = "success" ] && [ "${{ needs.code-quality.result }}" = "success" ]; then
+          echo "🎉 Validation PHP complète"
+        else
+          echo "❌ Validation incomplète"; exit 1
+        fi
