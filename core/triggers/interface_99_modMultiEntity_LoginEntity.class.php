@@ -118,10 +118,26 @@ class InterfaceLoginEntity extends DolibarrTriggers
 			dol_include_once('/multientity/class/multientity.class.php');
 			$service = new Multientity($this->db);
 
-			// Entités autorisées — JAMAIS vide (au pire {1}) — SEULE autorité (AC#3, AC#7)
+			// Entités autorisées — SEULE autorité (AC#3, AC#7)
 			$allowed = $service->getAllowedEntities($userId);
 
-			// Entité par défaut configurée par l'admin
+			// FAIL-CLOSED : scope vide = erreur technique ou toutes entités inactives.
+			// On NE POSE AUCUNE entité (pas d'octroi de l'entité 1) ; on retire toute valeur
+			// résiduelle de session pour ne pas laisser un scope obsolète. La garde 3.4
+			// (à venir) confirmera l'absence d'accès. LOG_ERR (distinct d'une résolution OK).
+			if (empty($allowed)) {
+				unset($_SESSION['dol_entity']);
+				unset($_SESSION['multientity_allowed_entities']);
+				dol_syslog(
+					__METHOD__ . " USER_LOGIN user=" . $userId
+						. " : aucune entite autorisee (erreur ou toutes inactives)"
+						. " — FAIL-CLOSED, aucune entite posee",
+					LOG_ERR
+				);
+				return 0;
+			}
+
+			// Entité par défaut configurée par l'admin (0 = indéterminé)
 			$default = (int) $service->getDefaultEntity($userId);
 
 			// Résolution : default ∈ allowed → ok ; sinon → première autorisée (AC#4)
@@ -130,16 +146,17 @@ class InterfaceLoginEntity extends DolibarrTriggers
 				$resolvedEntity = $default;
 			} else {
 				$resolvedEntity = (int) min($allowed);
-				// EC6 : on logue TOUJOURS l'écart (y compris default=1) car si on est
-				// dans ce else, c'est que 1 ∉ allowed → le défaut résolu est forcément
-				// une incohérence de données (is_default absent/corrompu) à auditer.
-				dol_syslog(
-					__METHOD__ . " user=" . $userId
-						. " : entite_defaut=" . $default . " hors autorisees ["
-						. implode(',', $allowed) . "]"
-						. " — premiere autorisee=" . $resolvedEntity . " retenue",
-					LOG_WARNING
-				);
+				// $default = 0 = sentinel « pas de défaut configuré » (cas légitime) → pas de WARNING.
+				// $default > 0 hors autorisées = vraie incohérence de données → WARNING d'audit (EC6).
+				if ($default > 0) {
+					dol_syslog(
+						__METHOD__ . " user=" . $userId
+							. " : entite_defaut=" . $default . " hors autorisees ["
+							. implode(',', $allowed) . "]"
+							. " — premiere autorisee=" . $resolvedEntity . " retenue",
+						LOG_WARNING
+					);
+				}
 			}
 
 			// --- Pose de la session (AC#5) ---
@@ -176,16 +193,19 @@ class InterfaceLoginEntity extends DolibarrTriggers
 			return 1;
 
 		} catch (Exception $e) {
-			// --- Fallback robustesse (AC#10) ---
-			// Ne jamais bloquer le login quelle que soit l'erreur du service.
-			// Le core retombera sur entity=1 via $conf->entity natif si $_SESSION n'est pas posée ;
-			// ici on la pose explicitement pour éviter toute ambiguïté.
-			$_SESSION['dol_entity'] = 1;
+			// --- Robustesse FAIL-CLOSED (AC#10) ---
+			// Ne jamais bloquer le login (un bug ne doit pas verrouiller l'instance),
+			// MAIS ne JAMAIS octroyer une entité concrète sur exception : on retire toute
+			// valeur de session pour ne pas laisser un scope obsolète/forgé. Le core appliquera
+			// son défaut natif ; la garde 3.4 fermera. LOG_ERR (incident à remonter), distinct
+			// d'une résolution réussie.
+			unset($_SESSION['dol_entity']);
+			unset($_SESSION['multientity_allowed_entities']);
 			dol_syslog(
 				__METHOD__ . " USER_LOGIN user=" . $userId
-					. " : exception catchee — fallback entite 1"
+					. " : exception catchee — FAIL-CLOSED, aucune entite posee"
 					. " | message=" . $e->getMessage(),
-				LOG_WARNING
+				LOG_ERR
 			);
 			return 0;
 		}

@@ -84,6 +84,8 @@ Sonnet (validate + dev + review 3-layer), coordination Opus. 2026-06-23.
 - Patches review appliqués : **EC6** (log WARNING systématique sur défaut hors autorisées, même =1), **C1-2** (`REMOTE_ADDR` validé `filter_var` anti log-injection), **C1-5** (trace impersonation `par_user`), **C1-3** (log `LOG_ERR` sur erreur SQL de `getDefaultEntity`), **C1-4** (type int du cache session documenté).
 - **C1-1 (HIGH, reporté en 3.3)** : fallback `{1}` quand toutes les entités d'un user sont inactives → la garde d'accès aux données (3.3) DOIT refuser l'accès aux données de l'entité 1 si le user n'y est pas explicitement affecté. Documenté in-code + action item E3.
 
+- **Correctif sécurité post-review pushed (FAIL-OPEN → FAIL-CLOSED)** : suite à la review automatique des commits, les fallbacks `{1}` sur erreur ont été supprimés. Désormais : erreur SQL (`getUserEntities`/`listEntities`) OU toutes entités du user inactives → `getAllowedEntities` retourne `array()` **vide** ; le trigger NE POSE AUCUNE entité (`unset $_SESSION['dol_entity']`) + `LOG_ERR`. `getDefaultEntity` renvoie sentinel `0` (pas `1`) sur erreur/absence. Exception → session non posée (pas `=1`) + `LOG_ERR`. Seul `{1}` conservé = user **sans aucune affectation** (rétrocompat mono-entité, décision produit documentée). Plus aucun octroi d'entité indu via le login.
+
 ### File List
 
 - core/triggers/interface_99_modMultiEntity_LoginEntity.class.php (NEW)

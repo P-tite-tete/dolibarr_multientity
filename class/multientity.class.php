@@ -701,9 +701,14 @@ class Multientity
 	 * Pas de filtre $conf->entity : tables transverses (llx_multientity_*).
 	 * Pas de SQL direct nouveau : compose getUserEntities() + listEntities(true).
 	 *
+	 * Contrat de retour (FAIL-CLOSED sur erreur) :
+	 *   - `{1}` UNIQUEMENT pour le cas légitime « 0 affectation » (rétrocompat mono-entité).
+	 *   - tableau d'entity_id (trié croissant) pour un user avec affectations actives.
+	 *   - **tableau VIDE `array()`** en cas d'erreur SQL OU si toutes les entités du user
+	 *     sont inactives → le trigger NE POSE AUCUNE entité (pas d'octroi de l'entité 1).
+	 *
 	 * @param int $fk_user Identifiant de l'utilisateur (sera casté en int).
-	 * @return int[] Tableau d'entity_id (int, ≥1 élément), trié croissant.
-	 *               En cas d'erreur SQL des sous-méthodes : retourne {1} + LOG_WARNING.
+	 * @return int[] Tableau d'entity_id (int) ; vide = aucun accès légitime (fail-closed).
 	 */
 	public function getAllowedEntities($fk_user)
 	{
@@ -713,20 +718,25 @@ class Multientity
 		$userRows = $this->getUserEntities($fk_user);
 
 		if ($userRows === -1) {
-			// Erreur SQL dans getUserEntities (déjà loguée) — fail-safe sur entité 1
+			// Erreur SQL (déjà loguée) — FAIL-CLOSED : scope vide, pas d'octroi d'entité.
+			// Le trigger refusera de poser une entité ; ne JAMAIS retomber sur {1} ici
+			// (un échec technique ne doit pas être indistinguable d'un accès légitime).
 			dol_syslog(
 				__METHOD__ . " Erreur SQL getUserEntities fk_user=" . $fk_user
-					. " — fallback entite 1 (fail-safe securite)",
-				LOG_WARNING
+					. " — FAIL-CLOSED (scope vide)",
+				LOG_ERR
 			);
-			return array(1);
+			return array();
 		}
 
 		if (empty($userRows)) {
-			// 0 affectation : fallback mono-entité (rétrocompat install non configurée)
+			// 0 affectation : fallback mono-entité {1} — DÉCISION PRODUIT EXPLICITE
+			// (rétrocompat : un user jamais configuré reste sur l'entité principale,
+			// comme en mono-entité natif ; le bloquer casserait les installs en cours
+			// de configuration). Ce N'EST PAS un fail-open : c'est le défaut système.
 			dol_syslog(
 				__METHOD__ . " fk_user=" . $fk_user
-					. " sans affectation — fallback entite 1 (retro compat)",
+					. " sans affectation — entite 1 (retrocompat mono-entite, decision produit)",
 				LOG_INFO
 			);
 			return array(1);
@@ -736,13 +746,13 @@ class Multientity
 		$activeEntities = $this->listEntities(true);
 
 		if ($activeEntities === -1) {
-			// Erreur SQL dans listEntities — fail-safe sur entité 1
+			// Erreur SQL — FAIL-CLOSED : scope vide (cf. ci-dessus)
 			dol_syslog(
 				__METHOD__ . " Erreur SQL listEntities fk_user=" . $fk_user
-					. " — fallback entite 1 (fail-safe securite)",
-				LOG_WARNING
+					. " — FAIL-CLOSED (scope vide)",
+				LOG_ERR
 			);
-			return array(1);
+			return array();
 		}
 
 		// Construire un set des entity_id actifs pour intersection O(n) efficace
@@ -761,14 +771,16 @@ class Multientity
 		}
 
 		if (empty($allowed)) {
-			// Affectations présentes mais TOUTES sur des entités inactives — situation anormale
+			// Affectations présentes mais TOUTES sur des entités inactives.
+			// FAIL-CLOSED : scope vide, AUCUN octroi de l'entité 1 (le user n'y est pas
+			// affecté → ne pas lui ouvrir l'entité principale). Le trigger ne posera rien ;
+			// la garde 3.4 confirmera l'absence d'accès.
 			dol_syslog(
 				__METHOD__ . " fk_user=" . $fk_user
-					. " : toutes les entites affectees sont inactives"
-					. " — fallback entite 1 (securite, LOG_WARNING)",
+					. " : toutes les entites affectees sont inactives — FAIL-CLOSED (scope vide)",
 				LOG_WARNING
 			);
-			return array(1);
+			return array();
 		}
 
 		// Tri croissant par entity_id (déterministe, utilisé par la résolution du défaut)
@@ -787,11 +799,16 @@ class Multientity
 	 * Retourne l'entité par défaut d'un utilisateur actif.
 	 *
 	 * Cherche l'entrée is_default=1 dans llx_multientity_user_entity pour un
-	 * utilisateur actif. Fallback garanti sur 1 (entité principale toujours
-	 * active via la garde de setActive).
+	 * utilisateur actif.
+	 *
+	 * Contrat (FAIL-CLOSED) :
+	 *   - retourne l'entity_id par défaut (>0) si trouvé ;
+	 *   - retourne **0** (sentinel « pas de défaut ») si aucun is_default OU erreur SQL.
+	 * L'appelant NE doit PAS interpréter 0 comme l'entité 1 : il valide le défaut
+	 * contre getAllowedEntities() et retombe sur la 1re autorisée si 0/∉ autorisées.
 	 *
 	 * @param int $fk_user Identifiant de l'utilisateur.
-	 * @return int entity_id par défaut (≥1).
+	 * @return int entity_id par défaut (>0), ou 0 si indéterminé/erreur.
 	 */
 	public function getDefaultEntity($fk_user)
 	{
@@ -805,11 +822,11 @@ class Multientity
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			// Erreur SQL : journaliser (cohérent avec getUserEntities/listEntities) puis fail-safe
+			// Erreur SQL : journaliser puis sentinel 0 (PAS 1 — ne pas octroyer d'entité)
 			$this->error = $this->db->lasterror();
 			$this->errors[] = $this->error;
 			dol_syslog(__METHOD__ . " Erreur SQL fk_user=" . $fk_user . " : " . $this->error, LOG_ERR);
-			return 1;
+			return 0;
 		}
 		if ($this->db->num_rows($resql) > 0) {
 			$obj = $this->db->fetch_object($resql);
@@ -818,7 +835,7 @@ class Multientity
 		}
 		$this->db->free($resql);
 
-		// Fallback garanti : entité 1 toujours active (garde setActive AC#5)
-		return 1;
+		// Aucun is_default configuré : sentinel 0 (l'appelant prendra la 1re autorisée)
+		return 0;
 	}
 }
