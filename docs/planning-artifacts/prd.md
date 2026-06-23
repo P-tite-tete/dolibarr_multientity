@@ -1,6 +1,6 @@
 # PRD — modMultiEntity (Multi-Entité)
 
-Date : 2026-06-23 · Statut : Draft · Cible Dolibarr : 19.0 → 23.0+ · PHP 7.4–8.4 · MySQL 5.7+/MariaDB 10.3+
+Date : 2026-06-23 · Statut : Draft · Cible Dolibarr : 19.0 → 23.0+ · PHP 7.4–8.5 · MySQL 5.7+/MariaDB 10.3+
 
 ## 1. Contexte & objectif
 
