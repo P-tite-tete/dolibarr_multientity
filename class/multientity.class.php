@@ -675,6 +675,115 @@ class Multientity
 	}
 
 	/**
+	 * Retourne la liste autoritaire des entités accessibles à un utilisateur.
+	 *
+	 * Source unique de vérité pour l'isolation (réutilisée par stories 3.3 et 3.4).
+	 * Le résultat est TOUJOURS non vide : au minimum {1} (fallback sécurisé).
+	 *
+	 * Règles :
+	 *  - Croisement getUserEntities($fk_user) ∩ listEntities(true) (entités actives).
+	 *    Corrige F-12 (getUserEntities ne filtre pas l'état actif des entités).
+	 *  - Si le user a 0 affectation → retourne {1} + LOG_INFO (fallback mono-entité,
+	 *    rétrocompat install non configurée).
+	 *  - Si le user a des affectations mais TOUTES inactives (intersection vide) →
+	 *    retourne {1} + LOG_WARNING (situation anormale, sécurité). ⚠️ COMPROMIS C1-1 :
+	 *    ce fallback {1} donne accès à l'entité 1 à un user qui n'y est pas affecté.
+	 *    Acceptable au login (fail-safe, non exploitable), mais la story 3.3 (garde
+	 *    d'accès aux données) DOIT refuser l'accès aux données de l'entité 1 si le user
+	 *    n'y est pas explicitement affecté (cf. action item retro E2 / AC à créer en 3.3).
+	 *  - Sinon → retourne l'intersection triée par entity_id croissant.
+	 *
+	 * ⚠️ NOTE CACHE SESSION : $_SESSION['multientity_allowed_entities'] est un cache
+	 * de PERFORMANCE uniquement. Cette méthode (requête serveur) est la SEULE autorité.
+	 * Ne JAMAIS autoriser un switch ou un accès sur la seule base du cache session
+	 * (risque de session forgée). Stories 3.3/3.4 DOIVENT appeler cette méthode.
+	 *
+	 * Pas de filtre $conf->entity : tables transverses (llx_multientity_*).
+	 * Pas de SQL direct nouveau : compose getUserEntities() + listEntities(true).
+	 *
+	 * @param int $fk_user Identifiant de l'utilisateur (sera casté en int).
+	 * @return int[] Tableau d'entity_id (int, ≥1 élément), trié croissant.
+	 *               En cas d'erreur SQL des sous-méthodes : retourne {1} + LOG_WARNING.
+	 */
+	public function getAllowedEntities($fk_user)
+	{
+		$fk_user = (int) $fk_user;
+
+		// --- Affectations du user (filtre user actif natif de getUserEntities) ---
+		$userRows = $this->getUserEntities($fk_user);
+
+		if ($userRows === -1) {
+			// Erreur SQL dans getUserEntities (déjà loguée) — fail-safe sur entité 1
+			dol_syslog(
+				__METHOD__ . " Erreur SQL getUserEntities fk_user=" . $fk_user
+					. " — fallback entite 1 (fail-safe securite)",
+				LOG_WARNING
+			);
+			return array(1);
+		}
+
+		if (empty($userRows)) {
+			// 0 affectation : fallback mono-entité (rétrocompat install non configurée)
+			dol_syslog(
+				__METHOD__ . " fk_user=" . $fk_user
+					. " sans affectation — fallback entite 1 (retro compat)",
+				LOG_INFO
+			);
+			return array(1);
+		}
+
+		// --- Entités actives (source unique) ---
+		$activeEntities = $this->listEntities(true);
+
+		if ($activeEntities === -1) {
+			// Erreur SQL dans listEntities — fail-safe sur entité 1
+			dol_syslog(
+				__METHOD__ . " Erreur SQL listEntities fk_user=" . $fk_user
+					. " — fallback entite 1 (fail-safe securite)",
+				LOG_WARNING
+			);
+			return array(1);
+		}
+
+		// Construire un set des entity_id actifs pour intersection O(n) efficace
+		$activeIds = array();
+		foreach ($activeEntities as $ent) {
+			$activeIds[(int) $ent->entity_id] = true;
+		}
+
+		// Intersection : entités affectées AU user ∩ entités actives (corrige F-12)
+		$allowed = array();
+		foreach ($userRows as $row) {
+			$eid = (int) $row->entity_id;
+			if (isset($activeIds[$eid])) {
+				$allowed[] = $eid;
+			}
+		}
+
+		if (empty($allowed)) {
+			// Affectations présentes mais TOUTES sur des entités inactives — situation anormale
+			dol_syslog(
+				__METHOD__ . " fk_user=" . $fk_user
+					. " : toutes les entites affectees sont inactives"
+					. " — fallback entite 1 (securite, LOG_WARNING)",
+				LOG_WARNING
+			);
+			return array(1);
+		}
+
+		// Tri croissant par entity_id (déterministe, utilisé par la résolution du défaut)
+		sort($allowed, SORT_NUMERIC);
+
+		dol_syslog(
+			__METHOD__ . " fk_user=" . $fk_user
+				. " entites_autorisees=" . implode(',', $allowed),
+			LOG_INFO
+		);
+
+		return $allowed;
+	}
+
+	/**
 	 * Retourne l'entité par défaut d'un utilisateur actif.
 	 *
 	 * Cherche l'entrée is_default=1 dans llx_multientity_user_entity pour un
@@ -695,14 +804,19 @@ class Multientity
 		$sql .= " LIMIT 1";
 
 		$resql = $this->db->query($sql);
-		if ($resql && $this->db->num_rows($resql) > 0) {
+		if (!$resql) {
+			// Erreur SQL : journaliser (cohérent avec getUserEntities/listEntities) puis fail-safe
+			$this->error = $this->db->lasterror();
+			$this->errors[] = $this->error;
+			dol_syslog(__METHOD__ . " Erreur SQL fk_user=" . $fk_user . " : " . $this->error, LOG_ERR);
+			return 1;
+		}
+		if ($this->db->num_rows($resql) > 0) {
 			$obj = $this->db->fetch_object($resql);
 			$this->db->free($resql);
 			return (int) $obj->entity_id;
 		}
-		if ($resql) {
-			$this->db->free($resql);
-		}
+		$this->db->free($resql);
 
 		// Fallback garanti : entité 1 toujours active (garde setActive AC#5)
 		return 1;

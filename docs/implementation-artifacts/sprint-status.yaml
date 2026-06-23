@@ -29,7 +29,7 @@ development_status:
   epic-2-retrospective: done
 
   epic-3: in-progress   # Switch securise (CŒUR — NFR-S1)
-  3-1-resolution-entite-login: ready-for-dev
+  3-1-resolution-entite-login: done
   3-2-selecteur-entite-ui: backlog
   3-3-controle-acces-serveur: backlog
   3-4-garde-permanente: backlog
@@ -94,4 +94,8 @@ action_items:
   - epic: 2
     action: "Decider du verrou anti-concurrence (FOR UPDATE) sur setUserEntities/setActive avant prod"
     owner: "dev E5"
+    status: open
+  - epic: 3
+    action: "Story 3.3 : la garde d'acces aux donnees doit refuser l'entite 1 a un user en fallback {1} (toutes ses entites inactives) s'il n'y est pas explicitement affecte (C1-1 review 3-1)"
+    owner: "dev E3"
     status: open
