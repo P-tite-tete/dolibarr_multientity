@@ -74,7 +74,7 @@ action_items:
   - epic: 1
     action: "Pousser branche + ouvrir PR pour executer la CI (php-tests + sql-compatibility) sur GitHub"
     owner: "P'tite Tête"
-    status: open
+    status: done   # PR #6 ; CI verte (PHP 7.4-8.4, 5 moteurs SQL) apres fix MariaDB 11.4
   - epic: 1
     action: "Completer la couverture compat : activation sur Dolibarr 19 et 21"
     owner: "dev E5.2"
