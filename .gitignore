@@ -1,0 +1,14 @@
+# Dolibarr / module
+/dist/
+*.log
+conf.php
+.DS_Store
+
+# Dépendances dev (non versionnées)
+/vendor/
+/node_modules/
+
+# Local / IDE
+.idea/
+.vscode/
+*.code-workspace

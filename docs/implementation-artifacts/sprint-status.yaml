@@ -1,0 +1,54 @@
+# Sprint status — modMultiEntity (Multi-Entité)
+# Format BMAD. Statuts story : backlog | drafted | ready-for-dev | in-progress | done
+# Statuts epic : backlog | in-progress | done
+
+generated: 2026-06-23
+project: dolibarr_multientity
+module_numero: 351007
+tracking_system: file-system
+story_location: docs/implementation-artifacts
+cible: "Dolibarr 19.0 -> 23.0+ ; PHP 7.4-8.4 ; MySQL 5.7+/MariaDB 10.3+"
+
+# Contexte : module maison de gestion multi-entité (multi-société) en isolation stricte,
+# alternative gratuite à Multicompany (330 EUR HT, pas de version libre compatible Dolibarr 23).
+# Socle multi-entité natif du core (entity partout + getEntity + master.inc.php) vérifié 2026-06-22.
+
+development_status:
+
+  epic-1: backlog   # Fondations module & schéma
+  1-1-descripteur-modmultientity: backlog
+  1-2-schema-sql-idempotent: backlog
+  1-3-squelette-i18n-lib: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog   # Gestion entités & affectation utilisateurs
+  2-1-service-multientity: backlog
+  2-2-page-admin-entities: backlog
+  2-3-initialisation-entite: backlog
+  2-4-affectation-user-entites: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog   # Switch d'entité sécurisé (CŒUR — sécurité d'isolation)
+  3-1-resolution-entite-login: backlog
+  3-2-selecteur-entite-ui: backlog
+  3-3-controle-acces-serveur: backlog
+  3-4-garde-permanente: backlog
+  3-5-tests-securite-isolation: backlog       # NFR-S1 — bloquant pour livraison
+  epic-3-retrospective: optional
+
+  epic-4: backlog   # Intégration suite P'tite Tête & non-régression
+  4-1-validation-doli2shop-par-entite: backlog
+  4-2-non-regression-compta-facturation: backlog
+  4-3-desactivation-propre: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog   # Qualité, doc, packaging (transverse)
+  5-1-tests-unitaires-et-securite: backlog
+  5-2-compat-multi-versions: backlog
+  5-3-docs: backlog
+  5-4-i18n-5-langues: backlog
+  5-5-packaging: backlog
+  epic-5-retrospective: optional
+
+# NOTE : ordre conseillé E1 -> E2 -> E3 -> E4 ; E5 en continu.
+# NE JAMAIS livrer E3 sans 3-5 (tests sécurité isolation) au vert.
