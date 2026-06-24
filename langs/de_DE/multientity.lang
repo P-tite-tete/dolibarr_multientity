@@ -57,3 +57,7 @@ DefaultEntity = Standard-Entität
 AssignmentsSaved = Zuordnungen erfolgreich gespeichert.
 DefaultMustBeAuthorized = Die Standard-Entität muss zu den autorisierten Entitäten gehören.
 NoEntitySelected = Keine Entität ausgewählt: Alle Zuordnungen wurden entfernt.
+
+# Entitätsauswahl UI (story 3.2)
+CurrentEntity = Aktuelle Entität
+SwitchEntity = Entität wechseln

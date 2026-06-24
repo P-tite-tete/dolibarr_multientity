@@ -57,3 +57,7 @@ DefaultEntity = Entidad predeterminada
 AssignmentsSaved = Asignaciones guardadas con éxito.
 DefaultMustBeAuthorized = La entidad predeterminada debe pertenecer a las entidades autorizadas.
 NoEntitySelected = Ninguna entidad seleccionada: todas las asignaciones han sido eliminadas.
+
+# Selector de entidad UI (story 3.2)
+CurrentEntity = Entidad actual
+SwitchEntity = Cambiar de entidad

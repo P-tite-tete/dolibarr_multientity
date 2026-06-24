@@ -57,3 +57,7 @@ DefaultEntity = Default entity
 AssignmentsSaved = Assignments saved successfully.
 DefaultMustBeAuthorized = The default entity must be one of the authorized entities.
 NoEntitySelected = No entity selected: all assignments have been removed.
+
+# Entity selector UI (story 3.2)
+CurrentEntity = Current entity
+SwitchEntity = Switch entity

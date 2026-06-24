@@ -30,7 +30,7 @@ development_status:
 
   epic-3: in-progress   # Switch securise (CŒUR — NFR-S1)
   3-1-resolution-entite-login: done
-  3-2-selecteur-entite-ui: backlog
+  3-2-selecteur-entite-ui: done
   3-3-controle-acces-serveur: backlog
   3-4-garde-permanente: backlog
   3-5-tests-securite-isolation: backlog       # NFR-S1 — bloquant pour livraison

@@ -111,12 +111,12 @@ class modMultiEntity extends DolibarrModules
 		// Hooks & triggers
 		// Triggers activés depuis story 3.1 : le trigger USER_LOGIN résout l'entité
 		// d'ouverture de session (interface_99_modMultiEntity_LoginEntity).
-		// NOTE : le gestionnaire de hooks (sélecteur d'entité, interception switch)
-		// sera livré en story 3.2+. Aucun hook actif ici pour garantir une
-		// activation/désactivation propre sans classe manquante.
+		// Hook toprightmenu activé en story 3.2 : ActionsMultientity::printTopRightMenu
+		// injecte l'indicateur d'entité courante + sélecteur dans la barre supérieure.
+		// ⚠️ Le switch lui-même n'est pas sécurisé avant 3.3/3.4/3.5.
 		$this->module_parts = array(
 			'triggers' => 1,
-			'hooks'    => array(),
+			'hooks'    => array('toprightmenu'),
 		);
 
 		// Tables créées à l'activation (via _load_tables sur sql/)
