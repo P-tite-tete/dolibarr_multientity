@@ -75,13 +75,14 @@ test/unit/…                                Tests (isolation/sécurité en prio
 3. `master.inc.php` (requête suivante) applique `$conf->entity`.
 
 ### 4.2 Switch d'entité (cœur sécurité)
-1. UI : sélecteur listant **uniquement** les entités autorisées du user (cache session).
-2. Soumission `switchentity=N` (POST tokenisé de préférence ; le core accepte aussi GET au login).
-3. **Contrôle serveur (NFR-S2)** : `N ∈ entités_autorisées(user)` ? sinon refus + `dol_syslog(LOG_WARNING)` + rester sur entité courante.
-4. Si OK : `$_SESSION['dol_entity'] = N`, redirect.
+> ⚠️ **Fait core vérifié (Dolibarr 23, master.inc.php:286)** : `switchentity`/`entity` n'est lu par le core **QUE pendant `loginfunction`** (au login). **Hors login, le core prend `$_SESSION["dol_entity"]`** et ignore `switchentity`. → Le switch en cours de session **doit être implémenté par le module** (le core ne le fait pas).
+1. UI : sélecteur listant **uniquement** les entités autorisées du user (source = `getAllowedEntities`).
+2. Soumission `?switchentity=N` (lien GET en 3.2 ; tokenisation CSRF ajoutée en 3.3).
+3. **Point d'accroche = hook `updateSession` (contexte `main`)** exécuté sur chaque page (main.inc.php:1015), tôt, `$user` authentifié, `$conf->entity` déjà résolu depuis la session, AVANT le chargement des données de page.
+4. **Contrôle serveur (NFR-S2)** : à réception de `switchentity=N`, valider `N ∈ getAllowedEntities(user)` ; si OK → `$_SESSION['dol_entity'] = N` + `$conf->entity = N` + redirect (PRG) ; sinon refus + `dol_syslog(LOG_WARNING)` (NFR-S3) + rester sur l'entité courante.
 
 ### 4.3 Garde permanente
-- Hook léger en début de page (ou surcharge contrôlée) qui revalide que `$conf->entity` ∈ entités autorisées du user — défense en profondeur contre une session forgée. Si KO → forcer entité par défaut + log.
+- Même hook `updateSession` (défense en profondeur, sur chaque page) : revalider que `$conf->entity` ∈ `getAllowedEntities(user)`. Si KO (session forgée / entité désactivée / désaffectation en cours de session) → forcer une entité autorisée (défaut, ou rien si scope vide en fail-closed) + `dol_syslog(LOG_WARNING)`. Couvre aussi le cas C1-1 (user en fallback `{1}` non affecté à 1 → refus d'accès aux données de 1).
 
 ## 5. Sécurité (exigence centrale)
 
